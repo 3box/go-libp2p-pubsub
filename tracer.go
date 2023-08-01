@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -74,6 +75,50 @@ func (t *basicTracer) Close() {
 		close(t.ch)
 	}
 }
+
+// LogTracer is a tracer that writes events to a file, encoded in ndjson.
+type LogTracer struct {
+	basicTracer
+}
+
+// NewLogTracer creates a new LogTracer writing traces to logs.
+func NewLogTracer() (*LogTracer, error) {
+	tr := &LogTracer{basicTracer{ch: make(chan struct{}, 1)}}
+	go tr.doWrite()
+
+	return tr, nil
+}
+
+func (t *LogTracer) doWrite() {
+	var buf []*pb.TraceEvent
+	for {
+		_, ok := <-t.ch
+
+		t.mx.Lock()
+		tmp := t.buf
+		t.buf = buf[:0]
+		buf = tmp
+		t.mx.Unlock()
+
+		for i, evt := range buf {
+			encBuf := new(bytes.Buffer)
+			enc := json.NewEncoder(encBuf)
+			enc.SetIndent("  ", "  ")
+			err := enc.Encode(evt)
+			if err != nil {
+				log.Warnf("error writing event trace: %s", err.Error())
+			}
+			log.Info(encBuf.String())
+			buf[i] = nil
+		}
+		if !ok {
+			log.Error("error reading from tracer channel")
+			return
+		}
+	}
+}
+
+var _ EventTracer = (*LogTracer)(nil)
 
 // JSONTracer is a tracer that writes events to a file, encoded in ndjson.
 type JSONTracer struct {
