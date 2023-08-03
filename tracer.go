@@ -103,12 +103,19 @@ func (t *LogTracer) doWrite() {
 		for i, evt := range buf {
 			encBuf := new(bytes.Buffer)
 			enc := json.NewEncoder(encBuf)
-			enc.SetIndent("  ", "  ")
 			err := enc.Encode(evt)
 			if err != nil {
-				log.Warnf("error writing event trace: %s", err.Error())
+				log.Warnf("error json encoding event trace: %s", err.Error())
 			}
-			log.Info(encBuf.String())
+			e := make(map[string]interface{})
+			err = json.Unmarshal(encBuf.Bytes(), &e)
+			if err != nil {
+				log.Warnf("error unmarshaling event trace: %s", err.Error())
+			}
+			log.Infow(
+				"trace",
+				"event", e,
+			)
 			buf[i] = nil
 		}
 		if !ok {
