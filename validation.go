@@ -488,15 +488,14 @@ func (val *validatorImpl) validateMsg(ctx context.Context, src peer.ID, msg *Mes
 	}
 
 	r := val.validate(ctx, src, msg)
-	if r == ValidationReject {
-		log.Warnf("Validator %s rejected message from %s", val.name, src)
-	}
 	switch r {
 	case ValidationAccept:
 		fallthrough
 	case ValidationReject:
+		log.Warnf("Validator %s rejected message from %s", val.name, src)
 		fallthrough
 	case ValidationIgnore:
+		log.Warnf("Validator %s ignored message from %s", val.name, src)
 		return r
 
 	default:
